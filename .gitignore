@@ -1,0 +1,83 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+*.egg-info/
+dist/
+build/
+
+# ESP32 / PlatformIO
+.platformio/
+*.bin
+*.elf
+*.hex
+*.map
+firmware/.pio/
+platformio.ini.bak
+
+# Raspberry Pi / Debian
+*.o
+*.so
+*.a
+Makefile
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+.cproject
+.classpath
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Hardware
+hardware/*.kicad_pcb
+hardware/*.kicad_sch
+hardware/*.kicad_pro
+hardware/*.step
+
+# Tests
+coverage/
+*.lcov
+.pytest_cache/
+
+# Logs
+*.log
+logs/
+
+# Memory Bank - Nur für internes Cline使用 (optional, standardmäßig committen)
+# memory-bank/.gitkeep
+
+# Build
+build/
+bin/
+obj/
+
+# Secrets & Config (NIEMALS committen!)
+*.key
+*.pem
+*.p12
+*.jks
+secrets/
+*.secret
+
+# Debug
+debug/
+*.dmp
+*.core
+
+# Documentation - interim
+docs/*.md
+!docs/README.md

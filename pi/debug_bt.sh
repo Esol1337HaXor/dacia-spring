@@ -1,0 +1,27 @@
+#!/bin/bash
+echo "===== Bluetooth Debug ====="
+echo "1. Adapter Status:"
+sudo hciconfig hci0
+echo ""
+echo "2. SDP Services:"
+sdptool browse local 2>/dev/null | head -20 || echo "sdptool not installed"
+echo ""
+echo "3. Pairable/Discoverable:"
+bluetoothctl show | grep -E "Powered|Discoverable|Pairable"
+echo ""
+echo "4. Device Name:"
+hcitool name B8:27:EB:F3:C7:61 2>/dev/null || echo "Can't get name"
+echo ""
+echo "5. Available Bluetooth devices:"
+bluetoothctl devices 2>/dev/null
+echo ""
+echo "6. BT server check:"
+ps aux | grep bt_spp_server | grep -v grep || echo "NO BT SERVER RUNNING"
+echo ""
+echo "7. RFCOMM devices:"
+sudo cat /dev/rfcomm 2>&1 | head -3 || echo "No rfcomm"
+echo ""
+echo "8. Check if port 1 RFCOMM is listening:"
+sudo cat /proc/net/btcp | head -10
+echo ""
+echo "Done!"
