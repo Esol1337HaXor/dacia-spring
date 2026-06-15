@@ -78,6 +78,4 @@ debug/
 *.dmp
 *.core
 
-# Documentation - interim
-docs/*.md
-!docs/README.md
+# Documentation - jetzt alle .md files committen
