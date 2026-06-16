@@ -1,0 +1,16 @@
+[Unit]
+Description=ELM327 TCP Server for OBD2 Emulation (RevHeadz)
+After=network.target
+
+[Service]
+Type=simple
+User=lsd
+WorkingDirectory=/home/lsd/obd2-adapter
+ExecStart=/usr/bin/python3 /home/lsd/obd2-adapter/elm327_tcp_server_standalone.py
+Restart=always
+RestartSec=3
+StandardOutput=append:/home/lsd/obd2-adapter/server.log
+StandardError=append:/home/lsd/obd2-adapter/server.log
+
+[Install]
+WantedBy=multi-user.target
