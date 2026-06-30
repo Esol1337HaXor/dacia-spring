@@ -1,16 +1,25 @@
 [Unit]
-Description=ELM327 TCP Server for OBD2 Emulation (RevHeadz)
-After=network.target
+Description=ELM327 BLE TCP Server mit Dynamic Simulation Engine (Sport-Modus)
+After=network.target bluetooth.target
+Wants=bluetooth.target
 
 [Service]
 Type=simple
 User=lsd
 WorkingDirectory=/home/lsd/obd2-adapter
-ExecStart=/usr/bin/python3 /home/lsd/obd2-adapter/elm327_tcp_server_standalone.py
+ExecStart=/home/lsd/obd2-adapter/obd2-adapter-env/bin/python3 /home/lsd/obd2-adapter/elm327_tcp_server_ble.py --mac D2:E0:2F:8D:61:07
 Restart=always
-RestartSec=3
+RestartSec=5
 StandardOutput=append:/home/lsd/obd2-adapter/server.log
 StandardError=append:/home/lsd/obd2-adapter/server.log
+
+# Umgebungsvariablen
+Environment=PYTHONUNBUFFERED=1
+Environment=BLINKA=1
+
+# Sicherheit
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target

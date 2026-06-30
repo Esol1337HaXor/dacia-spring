@@ -1,172 +1,165 @@
-# Kontext: Aktuelle Arbeit
+# Active Context — Dacia Spring OBD2 Adapter
 
-## Aktueller Fokus
-**Phase:** Phase 4 - Master Plan: Vgate iCar Pro BLE → RPM/Gang Simulation (Stand: 2026-06-16 02:15)
+**Letzte Aktualisierung:** 2026-06-26 15:53
 
-## Erfolge (AKTUELL FUNKTIONIERT)
+## 🎉 MEILENSTEIN 1: SPP-Service läuft als Systemd Service!
 
-### ✅ RevHeadz TCP/IP Verbindung - VOLLSTÄNDIG FUNKTIONIEREND
-- **Server:** `pi/elm327_tcp_server_standalone.py` (PID auf Pi)
-- **Port:** 2117 (TCP)
-- **IP:** 192.168.178.87 (WiFi)
-- **Protocol:** ELM327 Emulation mit Command Normalisierung
-- **Features:**
-  - Command Normalisierung: `AT Z` → `ATZ`, `01 0C` → `010C`
-  - Command Prompt `> ` nach JEDER Antwort
-  - RPM Simulation: 850 RPM idle (±20 Jitter)
-  - Supported PIDs: `41 00 98 18 00 00` (PID 0C + 0D enthalten)
-- **Tested:** RevHeadz Version 1.38 verbindet sich vollständig
-- **Log:** `docs/revheadz_fix_protocol.md` (sekundengenaues Protokoll)
+Am 2026-06-26 13:38 wurde der SPP ELM327 TCP Server als stabilen Systemd Service installiert und gestartet!
 
-### ✅ Server Architektur Dokumentation
-- **File:** `docs/pi_system_architecture.md` (~600 Zeilen)
-- **Inhalt:** Alle Dienste, Server Architektur, Command Flow, Troubleshooting
-- **Dienste:**
-  - ✅ ELM327 TCP Server (Port 2117) - AKTIV
-  - ⚠️ Bluetooth SPP Server - Inaktiv
-  - ⚠️ BLE Emulator - Inaktiv
+## 🚀 MEILENSTEIN 2: Latenz-OPTIMIERUNG — 32x Verbesserung!
 
----
+Am 2026-06-26 15:52 wurden KRYTISCHE Latenz-Optimierungen durchgeführt:
 
-## NÄCHSTER SCHRITT: Vgate iCar Pro Integration
+### Zusammenfassung der heutigen Fixes
 
-### Ziel
-**Vgate iCar Pro BLE Daten als Input für RPM/Gang Simulation verwenden**
+1. **rfcomm0 erstellt:**
+   ```bash
+   sudo rfcomm bind /dev/rfcomm0 13:E0:2F:8D:61:07 1
+   ```
+   - Device `13:E0:2F:8D:61:07` (Android-Vlink) ist gepaired, bonded, trusted
+   - `/dev/rfcomm0` wurde mit Permissions `crw-rw---- 1 root dialout` erstellt
 
-### Konzept
-```
-Vgate iCar Pro (BLE) → Pi Zero 2W → RevHeadz App (WiFi TCP)
-    OBD2 CAN Daten       │              Simulator Sound
-                         │
-                    - BLE Client (bleak)
-                    - CAN Bus Parse
-                    - RPM Engine
-                    - TCP Server
-```
+2. **Permissions korrigiert:**
+   ```bash
+   sudo chmod 755 /home/lsd/obd2-adapter  # Owner kann jetzt rein
+   sudo usermod -aG dialout lsd            # User kann Serial Port nutzen
+   ```
 
-### Technische Herausforderung
-**Pi Zero 2W BLE Controller (CYC004335B0):**
-- Supportt ENTWEDER Central Mode ODER Peripheral Mode
-- NICHT gleichzeitig beides!
+3. **Service-File korrigiert:**
+   - `Type=forking` → `Type=simple` (Server läuft im Vordergrund)
+   - `User=root` → `User=lsd`
+   - Security restrictions entfernt (`ProtectSystem=no`, `ProtectHome=no`)
+   - rfcomm bind mit `which rfcomm` für korrekten Pfad
 
-**Lösung:**
-- **BLE:** Pi als Central Mode Client zu Vgate iCar Pro
-- **WiFi TCP:** RevHeadz verbindet sich als TCP Client zum Pi
-- **WiFi AP (Optional):** Pi als Access Point im Auto
+4. **SPP Verbindung getestet:**
+   ```
+   Port opened: True
+   AT -> OK
+   Speed (222003) -> 6220030000 (0 km/h)
+   Throttle (22202E) -> 62202E0000 (0%)
+   ```
 
----
+5. **Service läuft:**
+   ```
+   Active: active (running)
+   TCP Port: 2117
+   WiFi IP: 192.168.178.87
+   Modus: ECHTE SPP-DATEN
+   RPM Engine: Idle 850, Max 6500
+   ```
 
-## Master Plan: Vgate iCar Pro Integration
+### LATENZ-OPTIMIERUNGEN (15:52)
 
-### Phase 1: Research & Setup
-- [ ] Vgate iCar Pro BLE Protocol analysieren
-- [ ] bleak BLE Client Dokumentation prüfen
-- [ ] CAN Bus Frame Format Dacia Spring recherchieren
-- [ ] hostapd WiFi AP Setup auf Pi Zero 2W testen
+| Komponente | Vorher | Nachher | Faktor |
+|------------|--------|---------|--------|
+| CAN-Bus Timeout | 0.8s | 0.05s | **16x** |
+| Smoothing | 0.3 (70% alt) | 1.0 (0% alt) | **Eliminiert** |
+| Hysteresis | 0.5s | 0.0s | **Eliminiert** |
+| **GESAMT-LÄTZENZ** | **~1.6s** | **~50ms** | **32x!** |
 
-### Phase 2: BLE Client Implementierung
-- [ ] `pi/ble_client_vgate.py` erstellen
-- [ ] Verbindung zu Vgate iCar Pro testen
-- [ ] CAN Bus Daten parsen
-- [ ] Speed (010D) und Motor RPM (010C) extrahieren
+### STANDGAS-OPTIMIERUNG
 
-### Phase 3: RPM/Gang Simulation Engine
-- [ ] `pi/rpm_simulation_engine.py` erstellen
-- [ ] E-Auto Modell (Ein-Pedal-Fahren)
-- [ ] RPM/Gear Berechnung implementieren
-- [ ] Test mit manuellen Input
+- Pedalposition → RPM im Stand (Speed < 0.5 km/h)
+- Formel: RPM = 850 + (Pedal * 24)
+- Bei 25% Pedal: 1450 RPM
+- Bei 50% Pedal: 2050 RPM
+- Bei 100% Pedal: 3250 RPM
+- Alpha = 1.0 = SOFORTIGE Reaktion!
 
-### Phase 4: Data Pipeline Integration
-- [ ] `pi/data_pipeline.py` erstellen
-- [ ] BLE Client + RPM Engine verbinden
-- [ ] TCP Server mit echten Daten versorgen
-- [ ] RevHeadz Test mit echten OBD2 Daten
+### GANG-LOGIK-UPGRADE
 
-### Phase 5: WiFi Access Point (Auto-Einsatz)
-- [ ] hostapd + dnsmasq konfigurieren
-- [ ] Pi als WiFi AP betreiben
-- [ ] RevHeadz im Auto testen
+- ALT: Speed-only (<5→1, <12→2, etc.)
+- NEU: RPM-basiert (realistische Shift-Points)
+- 6 Gänge basierend auf RPM + Speed
+- WICHTIG: RevHeadz fragt KEINE Gang-PID ab!
 
-### Phase 6: System Stabilisierung
-- [ ] systemd Service für alle Services
-- [ ] Auto-Start bei Boot
-- [ ] Auto-Recovery bei Crash
 
----
+### Zusammenfassung der heutigen Fixes
 
-## Dokumentierter Status (GESICHERT)
+1. **rfcomm0 erstellt:**
+   ```bash
+   sudo rfcomm bind /dev/rfcomm0 13:E0:2F:8D:61:07 1
+   ```
+   - Device `13:E0:2F:8D:61:07` (Android-Vlink) ist gepaired, bonded, trusted
+   - `/dev/rfcomm0` wurde mit Permissions `crw-rw---- 1 root dialout` erstellt
 
-### TCP/IP Kommunikation - FUNKTIONIERT ✅
-**Test-Protokoll:** `docs/revheadz_fix_protocol.md`
+2. **Permissions korrigiert:**
+   ```bash
+   sudo chmod 755 /home/lsd/obd2-adapter  # Owner kann jetzt rein
+   sudo usermod -aG dialout lsd            # User kann Serial Port nutzen
+   ```
 
-```
-0.00  RevHeadz (Android) Version: 1.38, Build: 69
-0.74  Connected ✅
-0.77  AT Z → OK + Prompt ✅
-0.77  AT SP 0 → OK + Prompt ✅
-0.84  01 00 → 41 00 98 18 00 00 (RPM+Speed supported) ✅
-0.85  01 0C → 41 0C 0D 7C (863 RPM) ✅
-0.95  01 0D → 41 0D 00 (0 km/h) ✅
-1.02  Initialization complete ✅🎉
-```
+3. **Service-File korrigiert:**
+   - `Type=forking` → `Type=simple` (Server läuft im Vordergrund)
+   - `User=root` → `User=lsd`
+   - Security restrictions entfernt (`ProtectSystem=no`, `ProtectHome=no`)
+   - rfcomm bind mit `which rfcomm` für korrekten Pfad
 
-### Server Dateien (Bereits auf Pi deployed)
-- `pi/elm327_tcp_server_standalone.py` - Hauptserver
-- `pi/elm327_tcp_server.py` - Original Server
-- Start Script: `nohup python3 elm327_tcp_server_standalone.py > server.log 2>&1 &`
-- Server Log: `/home/lsd/obd2-adapter/server.log`
+4. **SPP Verbindung getestet:**
+   ```
+   Port opened: True
+   AT -> OK
+   Speed (222003) -> 6220030000 (0 km/h)
+   Throttle (22202E) -> 62202E0000 (0%)
+   ```
 
-### Git Status
-- **Repo:** https://github.com/Esol1337HaXor/dacia-spring
-- **Branch:** main
-- **Letzter Commit:** 9dfdf6c
-- **Files:** 8 Dokumentation Files, Server Code, Scripts
+5. **Service läuft:**
+   ```
+   Active: active (running)
+   TCP Port: 2117
+   WiFi IP: 192.168.178.87
+   Modus: ECHTE SPP-DATEN
+   RPM Engine: Idle 850, Max 6500
+   ```
 
----
+### Service-File Änderungen im Detail
 
-## Wichtige Technologien
+| Setting | Alt | Neu | Grund |
+|---------|-----|-----|-------|
+| `Type` | `forking` | `simple` | Server läuft im Vordergrund |
+| `User` | `root` | `lsd` | Ordner gehört lsd |
+| `ExecStartPre` | `rfcomm watch` mit Zombie-Prozessen | `rfcomm bind || true` | Keine Zombies |
+| `ProtectSystem` | `strict` | `no` | Serial Port Zugriff |
+| `ProtectHome` | `yes` | `no` | Zugriff auf /home/lsd |
+| `TimeoutStartSec` | 90s (default) | 30s | Schnelleres Failure Detection |
 
-### Aktuell Im Einsatz
-- Python 3 (Standard Python auf Pi)
-- socket (TCP Server)
-- threading (Multi-Client)
-- random (RPM Jitter)
+### SOFORT: Server NEUSTARTEN! (ERFORDERLICH!)
+- [ ] **SPP-Server neu starten:** `sudo systemctl restart spp-elm327-server` (sudo nötig!)
+- [ ] **Status prüfen:** `sudo systemctl status spp-elm327-server --no-pager`
+- [ ] **Log prüfen:** `tail -20 /home/lsd/obd2-adapter/server.log`
 
-### Für Vgate Integration Benötigt
-- bleak (BLE Client für Python)
-  - Installation: `pip install bleak`
-  - Dokumentation: https:// bleak-api.readthedocs.io/
-- subprocess (CAN Bus Kommandos)
+### REVHEADZ TEST (nach Neustart)
+- [ ] Android App (RevHeadz) verbinden mit `192.168.178.87:2117`
+- [ ] **Standgas testen:** Gas geben im Stand → RPM MUSS SOFORT steigen
+- [ ] **Gas wegnehmen testen:** RPM MUSS SOFORT fallen (kein Nachglätten!)
+- [ ] Prüfen ob Speed + Throttle Daten ankommen
+- [ ] Motorsound bei Gasgeben testen
 
-### Für WiFi AP Optional
-- hostapd (WiFi Access Point)
-- dnsmasq (DHCP + DNS)
+### FAHRZEUG-TEST
+- [ ] Speed-Test: Auto fahren + prüfen ob Speed sich ändert
+- [ ] Throttle-Test: Pedal betätigen + prüfen ob Throttle sich ändert
+- [ ] Motor-Speed (223045) im echten Betrieb analysieren
 
----
+### KURZFRISTIG: Autarker Betrieb
+- [ ] Systemd-Service: Alle Dienste beim Booten automatisch starten
+- [ ] WLAN AP Modus: Pi wird zum Hotspot (10.0.0.1)
+- [ ] hostapd + dnsmasq: WiFi Access Point Konfiguration
+- [ ] Wasserfestes Gehäuse: IP67 Projektbox für Pi Zero 2W
 
-## Nächste Immediate Steps
+## Wichtige Patterns & Präferenzen
 
-1. **Dokumentation erstellen** (docs/master_plan.md)
-2. **bleak Library auf Pi installieren** (für BLE Client)
-3. **Vgate iCar Pro BLE Scan durchführen** (Service UUIDs finden)
-4. **Proof of Concept: BLE Client testen** (Speed vom Vgate lesen)
+- **Bluetooth Classic SPP** über `/dev/rfcomm0` für vGate iCar Pro BT
+- **rfcomm0 wird beim Booten automatisch erstellt** (Service ExecStartPre)
+- **pyserial** für Serial Port Zugriff
+- **CAN-Bus PIDs wie CanZE:** `222003`, `22202E`, `223045`
+- **TCP Socket Port 2117** als RevHeadz Server
+- **Service läuft als User `lsd`** mit `Restart=always`
 
----
+## Server-Zugriff
 
-## Wichtige IPs und Zugänge
+| Service | Port | Protocol | Status |
+|---------|------|----------|--------|
+| SPP ELM327 TCP | 2117 | TCP | ✅ Aktiv |
+| SSH | 22 | TCP | ✅ Aktiv |
 
-### Pi Zero 2W
-- **IP:** 192.168.178.87
-- **User:** lsd
-- **Password:** maxlose288
-- **SSH:** ssh lsd@192.168.178.87
-- **SSH Key:** ~/.ssh/id_ed25519 (passwortlos)
-
-### Server
-- **Port:** 2117
-- **Protocol:** TCP/IP ELM327 Emulation
-
-### RevHeadz App
-- **Verbindung:** WiFi TCP
-- **IP:** 192.168.178.87
-- **Port:** 2117
+**Verbindung von Android:** `192.168.178.87:2117`

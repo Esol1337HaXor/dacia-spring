@@ -2,11 +2,18 @@
 
 ## Produktinformation
 
-- **Name:** Vgate iCar Pro Bluetooth 4.0 (BLE) OBD2
-- **Chipset:** ELM327 (kompatibel)
-- **Schnittstelle:** Bluetooth Low Energy 4.0
-- **OBD2-Standard:** ISO 15765-4 (CAN 11/500), ISO 9141-2, KWP2000
-- **Kompatibel mit:** Dacia Spring (CAN 11/500 OBD2)
+**ACHTUNG:** Dieses Dokument beschreibt zwei verschiedene Adapter:
+
+| Eigenschaft | IOS-Vlink (unserer) | vGate iCar Pro |
+|-------------|---------------------|----------------|
+| **Model** | FSC-BT826N (Feasycom) | VK1032 |
+| **BLE Service** | `e7810a71-73ae-499d-8c15-faa9aef0c3f2` | `0000ffe1-0000-1000-8000-00805f9b34fb` |
+| **BLE Char** | `bef8d6c9-9c21-4c9e-b632-bd58c1009f9f` | `0000ffe1-0000-1000-8000-00805f9b34fb` |
+| **Protokoll** | BLE GATT | BLE GATT + WiFi TCP + BLE SPP |
+| **CAN-Sniffing** | ❌ Nein | ✅ Ja |
+| **MAC-Adresse** | D2:E0:2F:8D:61:07 | varies |
+
+Siehe auch: `docs/ble_gatt_ios_vlink_analysis.md` für detaillierte IOS-Vlink Dokumentation.
 
 ## Technische Spezifikationen
 

@@ -1,0 +1,1 @@
+# Datei gelöscht - vGate iCar Pro hat BLE, kein WiFi

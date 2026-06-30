@@ -184,6 +184,12 @@ Bluetooth SPP (send to Android)
 7. Android sendet `010C`, `010D`
 8. Datenfluss beginnt
 
+## SSH Zugang (AKTUALISIERT 2026-06-26)
+
+- **vollständige Dokumentation:** `memory-bank/sshAccess.md`
+- **Host:** `192.168.178.87`, **User:** `lsd`, **Passwort:** `maxlose288`
+- **Zweck:** Fernwartung, Dateitransfer, Service-Management, Log-Analyse
+
 ## Design Patterns
 
 - **State Machine:** Fahrzeugzustände verwalten

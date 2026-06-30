@@ -1,0 +1,40 @@
+[Unit]
+Description=SPP ELM327 TCP Server — Echte CAN-Bus-Daten vom vGate iCar Pro BT
+After=bluetooth.service dbus.service network-online.target bluetooth.target
+Wants=bluetooth.service
+
+[Service]
+Type=simple
+User=lsd
+Group=lsd
+
+# rfcomm0 einfach binden (kein watch, keine Zombies)
+ExecStartPre=/bin/bash -c "which rfcomm >/dev/null 2>&1 && rfcomm bind /dev/rfcomm0 13:E0:2F:8D:61:07 1 || true"
+
+# Server starten
+ExecStart=/usr/bin/python3 /home/lsd/obd2-adapter/spp_tcp_server.py
+
+# Recovery
+Restart=always
+RestartSec=5
+StartLimitInterval=60
+StartLimitBurst=10
+
+# Timeout erhöhen
+TimeoutStartSec=30
+TimeoutStopSec=30
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=spp-elm327-server
+
+# Environment
+Environment=PYTHONUNBUFFERED=1
+
+# Security relaxed
+NoNewPrivileges=no
+ProtectSystem=no
+ProtectHome=no
+
+[Install]
+WantedBy=multi-user.target

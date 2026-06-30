@@ -15,13 +15,23 @@
 - **WiFi TCP:** Alternative zu Bluetooth (Port 2117) - **EMPFOHLEN**
 - **Protokoll:** OBD2/ISO 15765-4 (CAN 11-bit, 500kbps)
 
-### Wichtige technische Erkenntnis (2026-06-15)
-- **Bluetooth RFCOMM auf Pi Zero 2W:**
-  - pybluez `bluetooth.BluetoothSocket(bluetooth.RFCOMM)` akzeptiert keine Verbindungen
-  - Fehler: `Bluetooth error: timed out` bei jedem Verbindungsversuch
-  - URSACHE: Unbekannt - möglicher BlueZ RFCOMM-Filter oder pybluez Kompatibilitätsproblem
-  - **WORKAROUND:** WiFi TCP Server verwenden (elm327_tcp_server.py)
-  - **WiFi TCP Server:** Port 2117, IP 192.168.178.87, zuverlässig
+### Wichtige technische Erkenntnis (2026-06-24 AKTUALISIERT)
+
+#### BLE GATT Kommunikation — IOS-Vlink Adapter ✅ FUNKTIONIERT!
+- **BLE GATT:** IOS-Vlink FSC-BT826N per BLE GATT erreichbar!
+- **BLE UUIDs:** 
+  - Service: `e7810a71-73ae-499d-8c15-faa9aef0c3f2`
+  - Char: `bef8d6c9-9c21-4c9e-b632-bd58c1009f9f`
+- **ELM327 Commands:** ATZ, ATI, ATSP0, 0100, 010D erfolgreich gesendet
+- **bleak v3.0.2:** Auf Pi installiert, funktioniert als root
+- **ERFORDERLICH:** Script MUSS als `sudo python3` ausgeführt werden!
+- **Dokumentation:** `docs/ble_gatt_ios_vlink_analysis.md`
+
+#### Bluetooth RFCOMM auf Pi Zero 2W:
+- pybluez `bluetooth.BluetoothSocket(bluetooth.RFCOMM)` akzeptiert keine Verbindungen
+- Fehler: `Bluetooth error: timed out` bei jedem Verbindungsversuch
+- **WORKAROUND:** WiFi TCP Server verwenden (elm327_tcp_server.py)
+- **WiFi TCP Server:** Port 2117, IP 192.168.178.87, zuverlässig
 
 - **python3-bluez Installation:**
   - Systemweit: `sudo apt install python3-bluez` (nicht im venv!)

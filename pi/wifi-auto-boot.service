@@ -1,0 +1,151 @@
+[Unit]
+Description=WiFi Auto-Boot — Client-First mit AP Fallback für Dacia Spring OBD2
+After=network-online.target bluetooth.target
+Requires=bluetooth.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=root
+ExecStart=/bin/bash -c '
+echo "[$(date "+%H:%M:%S")] wifi-auto-boot: Starte Client-First WiFi Boot..."
+
+# === SCHRITT 1: hostapd + dnsmasq STOPPEN ===
+echo "  Stoppe AP-Dienste..."
+systemctl stop hostapd 2>/dev/null || true
+systemctl stop dnsmasq 2>/dev/null || true
+pkill -9 hostapd 2>/dev/null || true
+pkill -9 dnsmasq 2>/dev/null || true
+sleep 2
+
+# === SCHRITT 2: wlan0 Interface vorbereiten ===
+echo "  Bereite wlan0 vor..."
+ip link set wlan0 down
+ip addr flush wlan0 2>/dev/null || true
+sleep 1
+ip link set wlan0 up
+sleep 1
+
+# === SCHRITT 3: Als WiFi CLIENT starten ===
+echo "  Starte wpa_supplicant (Client-Modus)..."
+wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant.conf 2>/dev/null || {
+    echo "  WARN: wpa_supplicant konnte nicht starten"
+    echo "  WARN: Keine wpa_supplicant.conf gefunden? Wechsel zu AP-Modus!"
+    goto_ap
+    exit 0
+}
+sleep 2
+
+# === SCHRITT 4: DHCP Request ===
+echo "  Requeste IP vom Router (dhclient)..."
+dhclient wlan0 -v -x 2>/dev/null || true
+dhclient wlan0 -v 2>/dev/null || true
+sleep 8
+
+# === SCHRITT 5: Prüfen ob Heimnetz-Verbindung erfolgreich ===
+LOCAL_IP=$(hostname -I 2>/dev/null | awk "{print \$1}" || echo "")
+
+echo "  Erhaltene IP: ${LOCAL_IP}"
+
+if echo "${LOCAL_IP}" | grep -q "192.168.178"; then
+    echo "  === HEIMNETZ VERFÜGBAR ==="
+    echo "  Client-Modus aktiv — bleibe als WiFi Client"
+    echo "  Pi IP: ${LOCAL_IP}"
+    echo "  SSH: ssh lsd@${LOCAL_IP}"
+    echo "  RevHeadz: ${LOCAL_IP}:2117"
+    
+    # Service als "active" markieren
+    exit 0
+else
+    echo "  === KEIN HEIMNETZ ERKANNT ==="
+    echo "  Wechsle zu AP-Modus (Hotspot)..."
+    
+    goto_ap:
+    
+    # === AP-MODUS ===
+    
+    # wpa_supplicant stoppen
+    pkill -9 wpa_supplicant 2>/dev/null || true
+    sleep 2
+    
+    # Interface reset
+    ip link set wlan0 down
+    ip addr flush wlan0 2>/dev/null || true
+    sleep 1
+    
+    # hostapd Config prüfen
+    if [ ! -f /etc/hostapd/hostapd.conf ]; then
+        echo "  Erstelle hostapd Config..."
+        cat > /etc/hostapd/hostapd.conf << HOSTAPD_EOF
+interface=wlan0
+driver=nl80211
+ssid=DaciaSpring-OBD2
+hw_mode=g
+channel=6
+wmm_enabled=0
+macaddr_policy=traditional
+wpa=2
+wpa_passphrase=obd2spring2026
+wpa_key_mgmt=WPA-PSK
+wpa_pairwise=TKIP
+rsn_pairwise=CCMP
+beacon_int=100
+dtim_period=2
+max_num_sta=10
+HOSTAPD_EOF
+    fi
+    
+    # dnsmasq Config prüfen
+    if [ ! -f /etc/dnsmasq.conf.bak_for_wifi_auto ]; then
+        cp /etc/dnsmasq.conf /etc/dnsmasq.conf.bak_for_wifi_auto 2>/dev/null || true
+        cat > /etc/dnsmasq.conf << DNSMASQ_EOF
+interface=wlan0
+bind-interfaces
+dhcp-range=10.0.0.100,10.0.0.200,255.255.255.0,12h
+dhcp-option=3,10.0.0.1
+dhcp-option=6,10.0.0.1
+log-dhcp
+DNSMASQ_EOF
+    fi
+    
+    # hostapd starten
+    echo "  Starte hostapd..."
+    hostapd -B /etc/hostapd/hostapd.conf 2>/dev/null || {
+        echo "  FEHLER: hostapd konnte nicht starten!"
+        exit 1
+    }
+    sleep 1
+    
+    # dnsmasq starten
+    echo "  Starte dnsmasq..."
+    dnsmasq --conf-file=/etc/dnsmasq.conf 2>/dev/null || systemctl start dnsmasq 2>/dev/null || true
+    sleep 1
+    
+    # IP zuweisen
+    echo "  Weise 10.0.0.1/24 zu..."
+    ip addr add 10.0.0.1/24 dev wlan0 2>/dev/null || true
+    ip link set wlan0 up
+    
+    sleep 2
+    
+    # Verifizieren
+    if pgrep hostapd > /dev/null; then
+        echo "  === AP-MODUS AKTIV ==="
+        echo "  SSID: DaciaSpring-OBD2"
+        echo "  Password: obd2spring2026"
+        echo "  Pi IP: 10.0.0.1"
+        echo "  SSH: ssh lsd@10.0.0.1"
+        echo "  RevHeadz: 10.0.0.1:2117"
+    else
+        echo "  FEHLER: AP-Modus gestartet aber hostapd nicht aktiv!"
+        exit 1
+    fi
+'
+
+# === SERVICE RESTART BEI FEHLER ===
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
