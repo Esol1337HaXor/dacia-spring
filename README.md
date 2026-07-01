@@ -38,32 +38,30 @@ Android-Motorsound-Apps (RevHeadz, Potenza Drive, Car Scanner etc.) erwarten OBD
 
 Dieses System emuliert einen **ELM327 OBD2-Adapter** auf einem Raspberry Pi Zero 2 W. Es generiert realistische, fahrdynamische RPM- und Geschwindigkeitswerte und stellt sie über **WiFi TCP** (oder alternativ BLE/Bluetooth) bereit. Die Android-App erkennt den Pi als Standard-OBD2-Adapter — Plug-and-Play.
 
-### Architektur-Übersicht
+### Betriebsmodi
+
+Das System unterstützt **zwei Betriebsmodi** — wahlweise simuliert oder mit echten Fahrzeugdaten:
+
+#### Modus A: Simulationsmodus (Stand-Alalone)
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    Dacia Spring (E-Auto)                       │
+│              Dacia Spring (E-Auto) — Simulationsmodus           │
 │                                                                │
 │  ┌────────────────────────────────────────────────┐           │
 │  │  Raspberry Pi Zero 2 W                          │           │
 │  │                                                 │           │
 │  │  ┌─────────────────────────────────────────┐   │           │
 │  │  │  systemd Service: elm327-server         │   │           │
+│  │  │  elm327_tcp_server_standalone.py        │   │           │
 │  │  │  (Auto-Start bei Systemstart)           │   │           │
 │  │  └────────────────┬────────────────────────┘   │           │
 │  │                   │                             │           │
 │  │  ┌────────────────▼────────────────────────┐   │           │
-│  │  │  ELM327 TCP Server (Hauptdienst)        │   │           │
-│  │  │  elm327_tcp_server_standalone.py        │   │           │
-│  │  │  Port: 2117 / TCP                       │   │           │
-│  │  │  Protocol: ELM327 Emulation             │   │           │
-│  │  └────────────────┬────────────────────────┘   │           │
-│  │                   │                             │           │
-│  │  ┌────────────────▼────────────────────────┐   │           │
-│  │  │  RPM Simulation Engine                  │   │           │
+│  │  │  Simulierte RPM Engine                  │   │           │
 │  │  │  Basis-RPM: 850 (Leerlauf)              │   │           │
 │  │  │  Jitter: ±20 RPM                        │   │           │
-│  │  │  Supported: PID 01, 04, 05, 0C, 0D      │   │           │
+│  │  │  Supported PIDs: 01, 04, 05, 0C, 0D     │   │           │
 │  │  └─────────────────────────────────────────┘   │           │
 │  └────────────────────────────────────────────────┘           │
 │                        │ WiFi TCP                              │
@@ -72,10 +70,59 @@ Dieses System emuliert einen **ELM327 OBD2-Adapter** auf einem Raspberry Pi Zero
 │  ┌─────────────────────────────────────────┐                 │
 │  │  Android Phone / Tablet                  │                 │
 │  │  RevHeadz / Car Scanner / Potenza Drive  │                 │
-│  │  - RPM Anzeige                           │                 │
+│  │  - RPM Anzeige (simuliert)               │                 │
 │  │  - Motorsound-Synthese                   │                 │
-│  │  - Gang-Anzeige (simuliert)              │                 │
 │  └─────────────────────────────────────────┘                 │
+└──────────────────────────────────────────────────────────────┘
+```
+
+#### Modus B: Echte Fahrzeugdaten (vGate iCar Pro BT)
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│              Dacia Spring (E-Auto) — Echte Fahrzeugdaten        │
+│                                                                │
+│  ┌────────────────────────────────────────────────┐           │
+│  │  OBD2 Port im Auto                               │           │
+│  │                                                 │           │
+│  │  ┌──────────────────────┐                       │           │
+│  │  │  vGate iCar Pro BT   │                       │           │
+│  │  │  (Bluetooth Classic) │                       │           │
+│  │  │  MAC: 13:E0:2F:      │                       │           │
+│  │  │     8D:61:07         │                       │           │
+│  │  └──────────┬───────────┘                       │           │
+│  │             │ Bluetooth Classic SPP             │           │
+│  │             │ RFCOMM Channel 1                  │           │
+│  │             ▼                                   │           │
+│  │  ┌─────────────────────────────────────────┐   │           │
+│  │  │  Raspberry Pi Zero 2 W                   │   │           │
+│  │  │                                          │   │           │
+│  │  │  /dev/rfcomm0 → SPP Reader               │   │           │
+│  │  │  PIDs: 222003 (Speed), 22202E (Throttle) │   │           │
+│  │  │                                          │   │           │
+│  │  │  ┌─────────────────────────────────────┐ │   │           │
+│  │  │  │ spp_tcp_server.py                   │ │   │           │
+│  │  │  │ → Bridgebt CAN-Daten zu TCP Server  │ │   │           │
+│  │  │  │ → RPM Engine (Speed + Throttle)     │ │   │           │
+│  │  │  └──────────────┬──────────────────────┘ │   │           │
+│  │  │                 │                         │   │           │
+│  │  │                 │ WiFi TCP                │   │           │
+│  │  │                 │ Port 2117               │   │           │
+│  │  │                 ▼                         │   │           │
+│  │  └────────────────┬─────────────────────────┘   │           │
+│  │                   │                             │           │
+│  └───────────────────┼─────────────────────────────┘           │
+│                      │ WiFi TCP                                │
+│                      │ 192.168.x.x:2117                         │
+│                      ▼                                         │
+│  ┌─────────────────────────────────────────┐                  │
+│  │  Android Phone / Tablet                  │                  │
+│  │  RevHeadz / Car Scanner / Potenza Drive  │                  │
+│  │  - RPM Anzeige (fahrzeugbasiert)         │                  │
+│  │  - Speed (echt vom CAN-Bus)              │                  │
+│  │  - Throttle (echt vom CAN-Bus)           │                  │
+│  │  - Motorsound-Synthese                   │                  │
+│  └─────────────────────────────────────────┘                  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -92,33 +139,57 @@ Dieses System emuliert einen **ELM327 OBD2-Adapter** auf einem Raspberry Pi Zero
 | **Supported PIDs** | ✅ Working | PID 01, 04, 05, 0C (RPM), 0D (Speed) |
 | **AT Commands** | ✅ Working | ATZ, ATI, ATE0, ATH0, ATS0, ATSP0, etc. |
 | **systemd Auto-Start** | ✅ Working | Server startet mit Pi-Boot |
-| **BLE GATT Emulation** | ⚠️ Experimental | Vgate iCar Pro kompatibel (braucht root) |
-| **Bluetooth SPP** | ❌ Inaktiv | Auf Pi Zero 2 W nicht stabil |
+| **WiFi TCP Server** | ✅ Working | ELM327 Emulation über TCP Port 2117 |
+| **Bluetooth Classic SPP** | ✅ Working | vGate iCar Pro BT über RFCOMM + TCP Bridge |
+| **BLE GATT (Vgate iCar Pro WiFi)** | ✅ Working | Echte OBD2-Daten lesbar (root erforderlich) |
+| **BLE GATT (IOS-VLink)** | ✅ Working | ELM327 Commands erfolgreich (root erforderlich) |
 | **WiFi Access Point** | ⚠️ Vorhanden | Setup-Script verfügbar, noch nicht integriert |
-| **Echte CAN-Daten** | 🔄 Geplant | Vgate iCar Pro BLE Integration in Planung |
 
 ---
 
 ## 🚀 Schnellstart
 
-### Voraussetzungen
+### Betriebsmodus wählen
 
-- **Hardware:** Raspberry Pi Zero 2 W
-- **OS:** Raspberry Pi OS (Bookworm, Python 3.13)
-- **Network:** WiFi im selben Netzwerk wie das Android-Gerät
+| Modus | Server | Daten | Erfordert |
+|-------|--------|-------|-----------|
+| **A: Simulation** | `elm327_tcp_server_standalone.py` | Simuliert (850 RPM idle) | Keine |
+| **B: Echte Daten** | `spp_tcp_server.py` | Echt vom vGate iCar Pro BT | vGate iCar Pro BT + Pairing |
 
-### Installation
+### Modus A: Simulationsmodus installieren
 
 ```bash
 # Auf dem Raspberry Pi: Repository klonen
 git clone https://github.com/Esol1337HaXor/dacia-spring.git
 cd dacia-spring/pi
 
-# systemd Service installieren
+# systemd Service installieren (Simulation)
 sudo cp elm327-server.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable elm327-server
 sudo systemctl start elm327-server
+```
+
+### Modus B: Echte Fahrzeugdaten installieren
+
+```bash
+# vGate iCar Pro BTpairing (einmalig)
+sudo bluetoothctl
+[bluetooth]# trust 13:E0:2F:8D:61:07
+[bluetooth]# pair 13:E0:2F:8D:61:07
+
+# RFCOMM erstellen
+sudo rfcomm bind /dev/rfcomm0 13:E0:2F:8D:61:07 1
+
+# spp_tcp_server starten
+cd ~/obd2-adapter
+sudo python3 spp_tcp_server.py
+
+# Oder als systemd Service (empfohlen)
+sudo cp spp-elm327-server.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable spp-elm327-server
+sudo systemctl start spp-elm327-server
 ```
 
 ### Status prüfen
@@ -463,15 +534,24 @@ pkill -u lsd -t pts/0
 - [x] systemd Service für Auto-Start
 - [x] WiFi-basierte Kommunikation
 
-### Phase 2: Vgate iCar Pro Integration 🔄 IN ARBEIT
+### Phase 2: Echte Fahrzeugdaten-Integration ✅ TEILWEISE ABGESCHLOSSEN
 
-- [ ] BLE Client zu Vgate iCar Pro etablieren
-- [ ] Echte OBD2-Daten vom Fahrzeug lesen (CAN Bus)
-- [ ] Geschwindigkeit (PID 0D) aus Echt-Daten
-- [ ] Throttle-Signal extrahieren
-- [ ] RPM Engine mit echten Daten verknüpfen
+- [x] vGate iCar Pro BT gefunden (Android-Vlink, MAC `13:E0:2F:8D:61:07`)
+- [x] Bluetooth Classic Pairing funktioniert
+- [x] RFCOMM SPP Verbindung (Channel 1) erfolgreich
+- [x] ELM327 v2.3 auf Adapter identifiziert
+- [x] CAN-Bus PIDs gelesen: Speed (222003), Throttle (22202E)
+- [x] Throttle-Format entschlüsselt (16-bit Big-Endian /10)
+- [x] Gasgeben getestet: 0% → 91.4% (Kickdown) → 100% (Vollgas)
+- [x] BLE GATT Kommunikation mit vGate iCar Pro WiFi getestet
+- [x] BLE GATT Kommunikation mit IOS-VLink getestet
 
-**Status:** BLE GATT Kommunikation mit kompatiblen Adaptern (Vgate iCar Pro, IOS-VLink) erfolgreich getestet. Dokumentation siehe [docs/ble_gatt_ios_vlink_analysis.md](docs/ble_gatt_ios_vlink_analysis.md).
+**Status:** Echte CAN-Bus-Daten vom vGate iCar Pro BT lesbar. SPP TCP Server bridgebt die Daten zu RevHeadz. Dokumentation siehe [docs/spp_bluetooth_classic_connection_guide.md](docs/spp_bluetooth_classic_connection_guide.md).
+
+**Bekannte Einschränkungen:**
+- Manual Pairing erforderlich vor SPP-Verbindung
+- rfcomm0 muss nach jedem Neustart neu erstellt werden
+- Server muss als `sudo python3 spp_tcp_server.py` gestartet werden
 
 ### Phase 3: WiFi Access Point 📋 PLANUNG
 
