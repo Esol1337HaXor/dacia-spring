@@ -1,111 +1,112 @@
 # Dacia Spring OBD2 Adapter
 
-![Status](https://img.shields.io/badge/Status-Working-brightgreen)
-![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi%20Zero%202W-blue)
-![License](https://img.shields.io/badge/License-MIT-blue)
-
 Ein System, das einen **Raspberry Pi Zero 2 W** als **ELM327 OBD2-Adapter** ausgeben lässt, um Android-Motorsound-Apps wie **RevHeadz** im **Dacia Spring** (und anderen E-Fahrzeugen) zu betreiben.
 
-Stecker rein — Auto starten — App verbinden — Sound ab. Mehr gibt's nicht zu tun.
+Der Pi liest echte CAN-Bus-Daten vom Auto über einen **vGate iCar Pro BT** Bluetooth-Adapter und stellt sie als ELM327 über WiFi bereit. RevHeadz erkennt den Pi als Standard-OBD2-Adapter — Plug-and-Play.
 
 ---
 
-## 🎯 Kurzfassung
+## 🎯 Funktionsübersicht
 
-| Frage | Antwort |
-|-------|---------|
-| **Was macht das System?** | Emuliert einen ELM327 OBD2-Adapter für Motorsound-Apps in E-Autos |
-| **Welche Apps funktionieren?** | RevHeadz, Car Scanner, Potenza Drive und alle ELM327-kompatiblen Apps |
-| **Wie verbindet man es?** | WiFi TCP — IP und Port werden automatisch konfiguriert |
-| **Woher kommen die Daten?** | Zwei Modi: Simulation oder echte CAN-Daten vom vGate iCar Pro BT |
-| **Braucht man Pairing?** | Nur bei Modus B mit vGate Adapter (einmalig) |
-| **Was funktioniert NICHT?** | WiFi Access Point (nur Client-Modus, kein Hotspot) |
-
----
-
-## 📡 Zwei Modi, gleiche Ergebnis
-
-### Modus A: Simulation (keine Hardware nötig)
-
-Der Pi generiert realistische RPM-Werte selbst. Funktioniert sofort nach der Installation — kein zusätzlicher Adapter erforderlich.
-
-- **RPM:** 850 Leerlauf, ±20 Jitter (natürliches Schwanken)
-- **Alle PIDs verfügbar:** Status, Engine Load, Coolant Temp, RPM, Speed
-- **Plug-and-Play:** systemd Service startet automatisch beim Booten
-
-### Modus B: Echte Fahrzeugdaten (vGate iCar Pro BT erforderlich)
-
-Der Pi liest echte CAN-Bus-Daten vom Auto über einen vGate iCar Pro BT Adapter und bereitet sie für die App auf.
-
-- **Speed:** Echt vom CAN-Bus (PID 222003)
-- **Throttle:** Echt vom Gaspedal (PID 22202E, 0–100 %)
-- **RPM:** Basierend auf Speed + Throttle berechnet (realistische Beschleunigung/Bremsen)
-- **Funktioniert mit Gasgeben:** 0 % Leerlauf → 91 % Kickdown → 100 % Vollgas
-
-**Welchen Modus sollte ich wählen?**
-Modus A ist einfacher einzurichten. Modus B klingt realistischer, weil er echte Fahrzeugdaten verwendet — aber Modus A klingt ebenfalls gut, weil die RPM-Simulation natürlich jittert. Beide funktionieren gleichermaßen mit RevHeadz.
+| Komponente | Wert |
+|------------|------|
+| **Hardware** | Raspberry Pi Zero 2 W + vGate iCar Pro BT |
+| **Datenquelle** | Echte CAN-Bus-Daten vom Fahrzeug |
+| **Schnittstelle zu App** | WiFi TCP, Port 2117 |
+| **ELM327-Emulation** | Vollständig konform (Prompt `> `, Command Normalisierung) |
+| **Kompatible Apps** | RevHeadz, Car Scanner, Potenza Drive |
+| **Betriebssystem** | Raspberry Pi OS Trixie |
 
 ---
 
-## 🔌 So funktioniert es
+## 🔌 Systemarchitektur
 
 ```
-Modus A (Simulation):
-  Pi → simulierte RPM → WiFi TCP → RevHeadz → Motorsound
-
-Modus B (Echte Daten):
-  Auto OBD2 Port → vGate iCar Pro BT → CAN-Bus Daten →
-  Pi berechnet RPM daraus → WiFi TCP → RevHeadz → Motorsound
+Auto OBD2 Port
+      │
+      ▼
+┌──────────────────────┐
+│  vGate iCar Pro BT   │
+│  Bluetooth Classic   │
+│  MAC: 13:E0:2F:8D:61:07 │
+└──────────┬───────────┘
+           │ Bluetooth SPP
+           │ RFCOMM Channel 1
+           ▼
+┌─────────────────────────────────┐
+│  Raspberry Pi Zero 2 W          │
+│                                 │
+│  /dev/rfcomm0 → SPP Reader      │
+│  CAN-PIDs: 222003 (Speed)       │
+│            22202E (Throttle)    │
+│                                 │
+│  spp_tcp_server.py              │
+│  → Bridgebt CAN zu TCP          │
+│  → RPM Engine (Speed+Throttle)  │
+│                                 │
+│  Port: 2117 / TCP               │
+└──────────┬──────────────────────┘
+           │ WiFi TCP
+           │ Port 2117
+           ▼
+┌─────────────────────────────────┐
+│  Android Phone / Tablet         │
+│  RevHeadz / Car Scanner         │
+│  - RPM Anzeige                  │
+│  - Speed (echt vom CAN-Bus)     │
+│  - Throttle (echt vom CAN-Bus)  │
+│  - Motorsound-Synthese          │
+└─────────────────────────────────┘
 ```
-
-In beiden Moden verbindet sich die Android-App gleich: WiFi TCP auf Port 2117.
 
 ---
 
 ## 🚀 Installation
 
-### 1. Pi vorbereiten
+### Voraussetzungen
 
-- Raspberry Pi Zero 2 W mit Raspberry Pi OS Trixie
-- WiFi mit dem gleichen Netzwerk wie das Android-Gerät
+- **Hardware:** Raspberry Pi Zero 2 W
+- **Hardware:** vGate iCar Pro BT (Bluetooth Classic, NICHT WiFi)
+- **OS:** Raspberry Pi OS Trixie (oder neuer)
+- **Network:** WiFi mit dem gleichen Netzwerk wie das Android-Gerät
 
-### 2. Repository klonen
+### 1. Repository klonen
 
 ```bash
 git clone https://github.com/Esol1337HaXor/dacia-spring.git
-cd dacia-spring/pi
+cd dacia-spring
 ```
 
-### 3. Server installieren
-
-#### Für Modus A (Simulation):
+### 2. Installationsskript ausführen
 
 ```bash
-sudo cp elm327-server.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now elm327-server
+cd setup
+sudo bash install.sh
 ```
 
-Fertig. Der Server startet automatisch mit dem Pi.
+Das Skript führt durch:
+- Bluetooth aktivieren
+- Pairing mit vGate Adapter (MAC `13:E0:2F:8D:61:07`)
+- RFCOMM Device `/dev/rfcomm0` erstellen
+- systemd Service installieren und starten
 
-#### Für Modus B (Echte Daten mit vGate iCar Pro BT):
-
+**Falls Pairing manuell nötig:**
 ```bash
-# Adapter einstecken, Pairing einmalig:
 sudo bluetoothctl
 [bluetooth]# trust 13:E0:2F:8D:61:07
 [bluetooth]# pair 13:E0:2F:8D:61:07
-
-# RFCOMM Device erstellen:
-sudo rfcomm bind /dev/rfcomm0 13:E0:2F:8D:61:07 1
-
-# Service installieren:
-sudo cp spp-elm327-server.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now spp-elm327-server
+# PIN: 1234 oder 0000
 ```
 
-**Hinweis:** Nach jedem Neustart muss `rfcomm bind` wiederholt werden — dafür gibt es ein Setup-Script: `setup_spp_service.sh`.
+### 3. Nach Neustart: RFCOMM neu erstellen
+
+Da `/dev/rfcomm0` nicht persistent ist, nach jedem Neustart:
+
+```bash
+cd setup
+sudo bash rfcomm_setup.sh
+sudo systemctl restart spp-elm327-server
+```
 
 ---
 
@@ -114,23 +115,68 @@ sudo systemctl enable --now spp-elm327-server
 ### RevHeadz
 
 1. Verbindungstyp: **WiFi OBD2 Adapter**
-2. IP: Pi-Adresse ermitteln (`hostname -I` auf dem Pi, typisch `192.168.178.87`)
+2. IP: Pi-Adresse ermitteln (auf dem Pi: `hostname -I`)
 3. Port: `2117`
-4. Verbinden klicken — fertig
+4. Verbinden — fertig
 
 ### Car Scanner ELM OBD2
 
 1. Verbindung: **WiFi / TCP**
 2. Device: Manuelles Device
-3. IP: Pi-Adresse
+3. IP: Pi-Adresse (`hostname -I`)
 4. Port: `2117`
 5. Protokoll: ELM327
 
-### Pi-Adresse ermitteln
+---
+
+## 📡 Echte CAN-Bus-Daten
+
+| CAN-PID | Funktion | Format | Beispiel |
+|---------|----------|--------|----------|
+| `222003` | Speed (km/h) | 16-bit Big-Endian | `6220030000` → 0 km/h |
+| `22202E` | Throttle (%) | 16-bit Big-Endian /10 | `62202E03E8` → 100.0% |
+
+**Throttle-Test:**
+- 0 % = Leerlauf (`62202E0000`)
+- 91.4 % = Kickdown (`62202E0392`)
+- 100 % = Vollgas (`62202E03E8`)
+
+### ELM327 PIDs (an App gesendet)
+
+| PID | Beschreibung | Antwort-Format |
+|-----|-------------|----------------|
+| `01 00` | Supported PIDs | `41 00 98 18 02 00` |
+| `01 0C` | Engine RPM | `41 0C XX XX` (berechnet aus Speed+Throttle) |
+| `01 0D` | Vehicle Speed | `41 0D XX` (echt vom CAN-Bus) |
+| `01 11` | Throttle Position | `41 11 XX` (echt vom CAN-Bus) |
+
+---
+
+## 🔧 Server verwalten
 
 ```bash
-hostname -I
-# Typische Ausgabe: 192.168.178.87
+# Status prüfen
+sudo systemctl status spp-elm327-server
+
+# Neustarten
+sudo systemctl restart spp-elm327-server
+
+# Logs
+sudo journalctl -u spp-elm327-server -f
+```
+
+### SSH-Zugriff auf den Pi
+
+```bash
+# Standard-Pi-Login
+ssh pi@<PI_IP>
+# Standard-Passwort des Pi betreffen
+
+# Service-Status remote
+ssh pi@<PI_IP> "systemctl status spp-elm327-server --no-pager"
+
+# Logs remote
+ssh pi@<PI_IP> "journalctl -u spp-elm327-server --no-pager -n 50"
 ```
 
 ---
@@ -139,47 +185,18 @@ hostname -I
 
 | Komponente | Status |
 |------------|--------|
+| Echte CAN-Bus-Daten vom vGate Adapter | ✅ Funktioniert |
+| Bluetooth Classic SPP über RFCOMM | ✅ Funktioniert |
 | ELM327 Emulation über WiFi TCP | ✅ Funktioniert |
 | RevHeadz Verbindung | ✅ Funktioniert |
 | Command Normalisierung | ✅ Funktioniert |
-| RPM (Simulation oder echt) | ✅ Funktioniert |
-| Speed ( Simulation oder echt) | ✅ Funktioniert |
-| Throttle (Modus B) | ✅ Funktioniert |
-| AlleSupported PIDs | ✅ Funktioniert |
-| AT Commands (ATZ, ATE0, ATH0, etc.) | ✅ Funktioniert |
+| RPM basierend auf Speed+Throttle | ✅ Funktioniert |
+| Speed echt vom CAN-Bus | ✅ Funktioniert |
+| Throttle echt vom CAN-Bus | ✅ Funktioniert |
 | systemd Auto-Start | ✅ Funktioniert |
-| Bluetooth SPP zu vGate Adapter | ✅ Funktioniert |
-| BLE GATT zu vGate WiFi Adapter | ✅ Funktioniert |
-| BLE GATT zu IOS-VLink Adapter | ✅ Funktioniert |
-| WiFi Access Point (Hotspot) | ❌ Nicht implementiert — Pi funktioniert nur als WiFi-Client |
+| WiFi Access Point (Hotspot) | ❌ Nicht implementiert |
 
-**Zusammengefasst:** Das System funktioniert in beiden Modi vollumfänglich. Einziger Punkt, der nicht exists: der Pi kann keinen eigenen WiFi-Hotspot aufsetzen. Für den typischen Einsatz (Pi im gleichen Heimnetz wie Handy, oder im Auto mit Mobilhotspot) ist das kein Problem.
-
----
-
-## 🔧 Server verwalten
-
-```bash
-# Status prüfen
-sudo systemctl status elm327-server      # Modus A
-sudo systemctl status spp-elm327-server  # Modus B
-
-# Neustarten
-sudo systemctl restart elm327-server
-
-# Logs
-sudo journalctl -u elm327-server -f
-tail -f /home/lsd/obd2-adapter/server.log
-```
-
-### RPM-Werte anpassen
-
-In `elm327_tcp_server_standalone.py`:
-
-```python
-idle_rpm = 850    # Leerlauf ändern
-jitter_range = 20 # Mehr/weniger Jitter
-```
+**Zusammengefasst:** Das System funktioniert vollumfänglich mit echten CAN-Bus-Daten. Einziger Punkt, der nicht existiert: der Pi kann keinen eigenen WiFi-Hotspot aufsetzen. Für den typischen Einsatz (Pi im gleichen Heimnetz wie Handy, oder im Auto mit Mobilhotspot) ist das kein Problem.
 
 ---
 
@@ -189,7 +206,7 @@ jitter_range = 20 # Mehr/weniger Jitter
 
 ```bash
 # Läuft der Server?
-pgrep -a python3 | grep elm327
+pgrep -a python3 | grep spp
 
 # Ist Port offen?
 ss -tlnp | grep 2117
@@ -198,10 +215,6 @@ ss -tlnp | grep 2117
 hostname -I  # Pi-Adresse mit der des Handys vergleichen
 ```
 
-### "Timeout waiting for response"
-
-Alle Antworten enden mit dem ELM327-Prompt `> `. Falls dies fehlt, ist die Server-Version veraltet — bitte die neueste Version clonen.
-
 ### vGate Adapter verbindet sich nicht
 
 ```bash
@@ -209,36 +222,51 @@ Alle Antworten enden mit dem ELM327-Prompt `> `. Falls dies fehlt, ist die Serve
 sudo bluetoothctl info 13:E0:2F:8D:61:07
 
 # RFCOMM neu erstellen
-sudo rfcomm release /dev/rfcomm0 2>/dev/null
-sudo rfcomm bind /dev/rfcomm0 13:E0:2F:8D:61:07 1
+cd setup
+sudo bash rfcomm_setup.sh
+sudo systemctl restart spp-elm327-server
 ```
 
 ---
 
-## 📁 Dateien
+## 📁 Projektstruktur
 
 ```
-pi/
-├── elm327_tcp_server_standalone.py  # Modus A: Simulation
-├── spp_tcp_server.py                 # Modus B: Echte CAN-Daten
-├── elm327-server.service             # systemd Service (Modus A)
-├── spp-elm327-server.service         # systemd Service (Modus B)
-├── rpm_simulation_engine.py          # RPM-Berechnung
-└── setup_spp_service.sh              # RFCOMM Auto-Setup (Modus B)
+dacia-spring/
+├── README.md                        # ← Diese Datei
+├── Projektpitch.md                  # Projekt-Pitch (deutsch)
+├── .gitignore
+│
+├── setup/                           # Setup-Skripte
+│   ├── install.sh                   # Vollständige Installation
+│   └── rfcomm_setup.sh              # RFCOMM Device neu erstellen
+│
+├── pi/                              # Produktions-Code
+│   ├── spp_tcp_server.py            # Hauptserver (CAN → ELM327 over TCP)
+│   ├── rpm_simulation_engine.py     # RPM-Berechnung aus Speed+Throttle
+│   └── spp-elm327-server.service    # systemd Service
+│
+└── docs/                            # Produktions-Dokumentation
+    ├── spp_bluetooth_classic_connection_guide.md  # vGate Einrichtung
+    ├── pi_system_architecture.md      # Systemarchitektur
+    ├── elm327_commands.md             # ELM327 Befehle
+    ├── obd2_pid_reference.md          # OBD2 PID-Referenz
+    ├── can_bus_reference.md           # CAN-Bus Referenz
+    └── vgate_icar_pro_reference.md    # vGate iCar Pro Info
 ```
 
 ---
 
-## 📚 Tiefe Dokumentation
+## 📚 Dokumentation
 
 | Dokument | Inhalt |
 |----------|--------|
+| [Bluetooth SPP Guide](docs/spp_bluetooth_classic_connection_guide.md) | vGate iCar Pro BT Einrichtung, Pairing, CAN-PIDs |
 | [Systemarchitektur](docs/pi_system_architecture.md) | Alle Dienste, Command-Flows, Debugging |
-| [Bluetooth SPP Guide](docs/spp_bluetooth_classic_connection_guide.md) | vGate iCar Pro BT Einrichtung |
-| [Master Plan](docs/master_plan.md) | Langfristige Planung |
-| [ELM327 Befehle](docs/elm327_commands.md) | Komplette Befehlsreferenz |
+| [ELM327 Befehle](docs/elm327_commands.md) | Komplette AT-Befehlsreferenz |
 | [OBD2 PIDs](docs/obd2_pid_reference.md) | Alle PIDs und Formeln |
-| [BLE GATT Analyse](docs/ble_gatt_ios_vlink_analysis.md) | BLE Adapter Dokumentation |
+| [CAN Bus Referenz](docs/can_bus_reference.md) | CAN-Frame-Formate, Dacia Spring |
+| [Vgate iCar Pro](docs/vgate_icar_pro_reference.md) | BLE-UUIDs, Protokoll-Details |
 
 ---
 
