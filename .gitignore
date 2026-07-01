@@ -1,3 +1,70 @@
+# Memory Bank — sensible Projekt-Dokumentation, nie committen
+memory-bank/
+
+# Test-Dateien
+pi/test_*.py
+pi/*_test.py
+pi/real_data_test.py
+pi/real_data_test2.py
+pi/continuous_speed_test.py
+pi/notify_debug.py
+pi/notify_raw_dump.py
+pi/check_ble_data.py
+pi/check_ble_debug.py
+pi/validate_test.py
+pi/validator_debug.py
+
+# Debug-Servers
+debug_server_v2.py
+run_debug_test.py
+pi/echo_server.py
+pi/simple_tcp_test.py
+
+# Alte/inaktive Server
+pi/elm327_tcp_server_standalone.py
+pi/elm327_tcp_server.py
+pi/elm327_ble_emulator.py
+pi/elm327_simple.py
+pi/bluetooth_spp_server.py
+pi/bt_spp_server.py
+pi/dynamic_sim_engine.py
+pi/obd2_data_pipeline.py
+
+# Alte BLE-Client-Tests
+pi/ble_android_vlink_test.py
+pi/ble_client_vgate_root.py
+pi/ble_read_char_test.py
+pi/c/
+
+# WiFi AP (inaktiv)
+pi/wifi-auto-boot.service
+pi/wpa_supplicant.conf
+pi/wifi_mode_switch.sh
+pi/setup_wifi_ap.sh
+pi/README_WIFI_AP.md
+
+# Alte Services
+pi/elm327-server.service
+
+# Debug-Skripte
+pi/debug_bt.sh
+pi/fix_agent.sh
+pi/fix_pairing.sh
+pi/restart_bt.sh
+pi/setup_bt.sh
+pi/check_bt.sh
+pi/find_bt_devices.py
+pi/scan_bt_devices.py
+
+# Alte Doku (Debug/veraltet)
+docs/master_plan.md
+docs/ble_gatt_ios_vlink_analysis.md
+docs/android_app_setup.md
+docs/elm327_adapter_validation.md
+docs/can_bus_communication_analysis.md
+docs/revheadz_fix_protocol.md
+docs/vehicle_readout_status.md
+
 # Python
 __pycache__/
 *.py[cod]
@@ -20,12 +87,6 @@ build/
 firmware/.pio/
 platformio.ini.bak
 
-# Raspberry Pi / Debian
-*.o
-*.so
-*.a
-Makefile
-
 # IDE
 .vscode/
 .idea/
@@ -42,23 +103,9 @@ Makefile
 Thumbs.db
 desktop.ini
 
-# Hardware
-hardware/*.kicad_pcb
-hardware/*.kicad_sch
-hardware/*.kicad_pro
-hardware/*.step
-
-# Tests
-coverage/
-*.lcov
-.pytest_cache/
-
 # Logs
 *.log
 logs/
-
-# Memory Bank - Nur für internes Cline使用 (optional, standardmäßig committen)
-# memory-bank/.gitkeep
 
 # Build
 build/
@@ -72,10 +119,3 @@ obj/
 *.jks
 secrets/
 *.secret
-
-# Debug
-debug/
-*.dmp
-*.core
-
-# Documentation - jetzt alle .md files committen
