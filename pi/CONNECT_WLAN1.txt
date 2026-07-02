@@ -1,0 +1,39 @@
+# WLAN1 MIT WAGGUMAIRPORT VERBINDEN
+
+Diese Befehle auf dem Pi Zero 2 W eingeben (SSH oder Terminal):
+
+# 1. wpa_supplicant Config erstellen
+sudo tee /etc/wpa_supplicant/wpa_supplicant-wlan1.conf > /dev/null << 'EOF'
+ctrl_interface=DIR=/run/wpa_supplicant GROUP=netdev
+country=DE
+network={
+    ssid="WaggumAirport"
+    psk="DankefuermeineArbeitsstelle"
+    key_mgmt=WPA-PSK
+}
+EOF
+
+# 2. Alten wpa_supplicant beenden
+sudo pkill -9 wpa_supplicant 2>/dev/null || true
+sudo rm -f /run/wpa_supplicant/*
+
+# 3. wlan1 hochfahren
+sudo ip link set wlan1 up
+
+# 4. Mit WaggumAirport verbinden
+sudo wpa_supplicant -B -i wlan1 -c /etc/wpa_supplicant/wpa_supplicant-wlan1.conf
+
+# 5. Auf Verbindung warten
+sleep 5
+
+# 6. IP per DHCP holen
+sudo dhcpcd wlan1
+
+# 7. Pruefen ob verbunden
+sudo iw dev wlan1 link
+ip addr show wlan1 | grep inet
+
+# Erwartete Ausgabe:
+# Connected to XX:XX:XX:XX:XX:XX
+# SSID: WaggumAirport
+# inet 192.168.178.XX/24 ...
